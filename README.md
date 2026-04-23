@@ -37,14 +37,19 @@ No wallet connection or private keys
 All data lives in browser memory and is gone when you close the tab
 The only network calls are blockchain RPC reads and public price API fetches
 Technical Details
-Single HTML file (~1,200 lines)
+Single HTML file (~1,300 lines)
 Pure JavaScript — no frameworks
 External dependencies: Chart.js (charts) and html2canvas (snapshots), both loaded from CDN
 Custom Keccak-256 implementation for contract selector computation
 Complete daily price tables: 2,331 eHEX entries + 1,070 pHEX entries hardcoded from HEXDailyStats
+Support
+This tool is free and open-source. If you find it useful, consider sending a donation to:
+`0xcE814f3042bD70aCE79f7d40cAdb719B3824067d`
+PulseChain & Ethereum compatible — HEX, PLS, PLSX, ETH, USDC, or your favorite meme coins. Every contribution helps keep the tool maintained.
 Refreshing Price Tables
 The hardcoded price tables cover Day 1 through approximately April 2026. To update them, run the fetch script from the handoff document in a browser console on `about:blank`. Recommended refresh: quarterly or before a public release.
 License
-GPL-3.0
+GPL-3.0 — See LICENSE for details.
+© 2026 HexStakeAnalyzer. All rights reserved.
 ---
 Built for HEX stakers, by a HEX staker.
