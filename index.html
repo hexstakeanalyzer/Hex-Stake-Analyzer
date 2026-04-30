@@ -1763,7 +1763,7 @@ async function fetchEndedFromLogsChunkedBatch(addrTopics,chain){
   const fromBlock=HEX_DEPLOY_BLOCK.eth;
   const toBlock=await getBlockNumber(chain);
   if(toBlock==null)return{endLogs:[],startLogs:[]};
-  const CHUNK=25000;
+  const CHUNK=100000;
   const totalChunks=Math.ceil((toBlock-fromBlock)/CHUNK);
   let done=0;
   const ranges=[];
@@ -1773,10 +1773,10 @@ async function fetchEndedFromLogsChunkedBatch(addrTopics,chain){
     const tryFetch=async(topic)=>{for(const u of urls){try{return await rpcLogs(params(topic),u);}catch(e){}}return null;};
     const [endLogs,startLogs]=await Promise.all([tryFetch(TOPIC_STAKE_END),tryFetch(TOPIC_STAKE_START)]);
     done++;
-    if(done%10===0||done===totalChunks){
+    if(done%5===0||done===totalChunks){
       const pct=Math.round(done/totalChunks*100);
       const elapsed=(Date.now()-scanStart)/1000;
-      const eta=done>5?Math.round(elapsed/done*(totalChunks-done)):null;
+      const eta=done>3?Math.round(elapsed/done*(totalChunks-done)):null;
       const etaStr=eta!==null?(eta>60?Math.round(eta/60)+'m remaining':eta+'s remaining'):'';
       setSt(`<span class="spin"></span>Scanning Ethereum history… ${pct}% — ${etaStr} <span style="color:var(--mu);font-size:9px;">(large wallet — this is normal)</span>`);
     }
@@ -1784,7 +1784,7 @@ async function fetchEndedFromLogsChunkedBatch(addrTopics,chain){
   };
   const scanStart=Date.now();
   const tasks=ranges.map(r=>()=>queryRange(r));
-  const results=await runConcurrent(tasks,10);
+  const results=await runConcurrent(tasks,20);
   const allEnd=[],allStart=[],failedChunks=[];
   for(let i=0;i<results.length;i++){
     const r=results[i];
@@ -1806,7 +1806,7 @@ async function fetchEndedFromLogsChunked(addr,addrTopic,chain){
     console.warn(`[${chain}] could not get current block, skipping ended-log scan`);
     return[];
   }
-  const CHUNK=25000; // larger chunks = fewer round trips
+  const CHUNK=100000; // larger chunks = fewer round trips
   const totalChunks=Math.ceil((toBlock-fromBlock)/CHUNK);
   let done=0;
   const ranges=[];
@@ -1826,7 +1826,7 @@ async function fetchEndedFromLogsChunked(addr,addrTopic,chain){
     return{endLogs:endLogs||[],startLogs:startLogs||[],failed:endLogs===null||startLogs===null};
   };
   const tasks=ranges.map(r=>()=>queryRange(r));
-  const results=await runConcurrent(tasks,10);
+  const results=await runConcurrent(tasks,20);
   let allEnd=[],allStart=[],failedRanges=0;
   for(const r of results){
     if(!r||r.error){failedRanges++;continue;}
