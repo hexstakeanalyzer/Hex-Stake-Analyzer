@@ -1763,7 +1763,7 @@ async function fetchEndedFromLogsChunkedBatch(addrTopics,chain){
   const fromBlock=HEX_DEPLOY_BLOCK.eth;
   const toBlock=await getBlockNumber(chain);
   if(toBlock==null)return{endLogs:[],startLogs:[]};
-  const CHUNK=100000;
+  const CHUNK=500000;
   const totalChunks=Math.ceil((toBlock-fromBlock)/CHUNK);
   let done=0;
   const ranges=[];
@@ -1806,7 +1806,7 @@ async function fetchEndedFromLogsChunked(addr,addrTopic,chain){
     console.warn(`[${chain}] could not get current block, skipping ended-log scan`);
     return[];
   }
-  const CHUNK=100000; // larger chunks = fewer round trips
+  const CHUNK=500000; // larger chunks = fewer round trips
   const totalChunks=Math.ceil((toBlock-fromBlock)/CHUNK);
   let done=0;
   const ranges=[];
