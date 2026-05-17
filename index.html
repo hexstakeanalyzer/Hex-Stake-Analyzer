@@ -11,6 +11,9 @@
 <style>
 /* © 2026 HexStakeAnalyzer. All rights reserved. Licensed under GPL-3.0. */
 @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600&display=swap');
+#hsa-update-banner{display:none;position:fixed;top:0;left:0;right:0;z-index:9999;background:linear-gradient(135deg,#FF6B00,#FF9500);color:#000;font-family:Inter,sans-serif;font-size:14px;font-weight:600;text-align:center;padding:10px 16px;cursor:pointer;box-shadow:0 2px 12px rgba(255,107,0,0.4);}
+#hsa-update-banner:hover{background:linear-gradient(135deg,#FF9500,#FFB800);}
+#hsa-update-banner.show{display:block;}
 *{box-sizing:border-box;margin:0;padding:0;}
 html,body{background:#07090f;min-height:100%;}
 :root{--ha:#FFB800;--hb:#FF5500;--hc:#FF0080;--pa:#FF00CC;--pb:#9400FF;--pc:#00AAFF;--ga:#00d4aa;--gb:#00FF66;--bg:#07090f;--s1:#0e1220;--s2:#131826;--s3:#1a2235;--bd:rgba(255,255,255,0.07);--tx:#eef0f8;--mu:#9aa8bf;--di:#2e3a4e;}
@@ -917,6 +920,7 @@ html,body{background:#07090f;min-height:100%;}
 }
 </style>
 
+<div id="hsa-update-banner" onclick="location.reload(true)">🔄 A newer version of HEX Stake Analyzer is available — click here to refresh</div>
 <div id="app">
   <div class="progress-bar" id="progress-bar"><div class="progress-bar-fill" id="progress-bar-fill"></div></div>
   <div class="topbar"><div class="logo"><span class="l-hex">HEX</span><span class="l-sub">Stake Analyzer</span></div><div style="display:flex;align-items:center;gap:12px;"><button class="donate-topbtn" onclick="openSupport()">♥ Thanks</button><button class="about-btn" onclick="openAbout()" title="About this tool">?</button><button class="share-btn" id="share-btn" onclick="openSnapshot()">&#9881; SHARE</button><div class="upd"><span id="tu">—</span><div class="upd-ring"></div></div></div></div>
@@ -1210,6 +1214,8 @@ html,body{background:#07090f;min-height:100%;}
  *
  * Removal or modification of this copyright notice is a violation of the license.
  */
+const HSA_VERSION='42.1';
+
 const K_RC=[0x0000000000000001n,0x0000000000008082n,0x800000000000808An,0x8000000080008000n,0x000000000000808Bn,0x0000000080000001n,0x8000000080008081n,0x8000000000008009n,0x000000000000008An,0x0000000000000088n,0x0000000080008009n,0x000000008000000An,0x000000008000808Bn,0x800000000000008Bn,0x8000000000008089n,0x8000000000008003n,0x8000000000008002n,0x8000000000000080n,0x000000000000800An,0x800000008000000An,0x8000000080008081n,0x8000000000008080n,0x0000000080000001n,0x8000000080008008n];
 const K_ROT=[[0,36,3,41,18],[1,44,10,45,2],[62,6,43,15,61],[28,55,25,21,56],[27,20,39,8,14]];
 const M64=0xFFFFFFFFFFFFFFFFn;
@@ -3703,4 +3709,25 @@ function openSupport(){document.getElementById('support-overlay').classList.add(
 function closeSupport(){document.getElementById('support-overlay').classList.remove('open');}
 
 fpr();setInterval(fpr,60000);
+
+// ── Version check — detect stale cached pages ──
+// Fetches a small range of the live index.html from the server, extracts the
+// HSA_VERSION string, and compares it to the running version. If they differ,
+// shows a banner prompting the user to refresh. Runs once 5s after load, then
+// every 30 minutes. Silent on failure (offline, local file, CORS).
+(function(){
+  function checkVersion(){
+    fetch(location.href,{cache:'no-store',headers:{'Range':'bytes=0-8000'}})
+    .then(r=>{if(!r.ok)return;return r.text()})
+    .then(t=>{
+      if(!t)return;
+      const m=t.match(/HSA_VERSION\s*=\s*'([^']+)'/);
+      if(m&&m[1]!==HSA_VERSION){
+        document.getElementById('hsa-update-banner').classList.add('show');
+      }
+    }).catch(()=>{});
+  }
+  setTimeout(checkVersion,5000);
+  setInterval(checkVersion,1800000);
+})();
 </script>
