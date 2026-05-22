@@ -4903,15 +4903,19 @@ function bpdYield(s){
   }
 
   // Path 2: active/pending — corrected approximation
+  // Static cache (from HEXDailyStats) only has pt+st, NOT satoshi bits.
+  // The unclaimed satoshis value is immutable (BPD happened once, Nov 19 2020).
+  // Fetched from contract: dailyDataRange(352,353) → sat(144-199) = 1786651846416372
+  // st from contract = 50499329839740027369, but we use the cache st which matches.
+  const BPD_SAT=1786651846416372n;
   const gdd=gddBy['eth'];
   if(!gdd||!gdd.data||!gdd.data.length)return null;
   const idx=BPD_DAY-gdd.bd;
   if(idx<0||idx>=gdd.data.length)return null;
   const raw=gdd.data[idx];
-  const sat=(raw>>144n)&M56;
   const st=(raw>>72n)&M72;
-  if(st===0n||sat===0n)return null;
-  const rawAmt=sat*HEARTS_PER_SATOSHI*s.stakeShares/st;
+  if(st===0n)return null;
+  const rawAmt=BPD_SAT*HEARTS_PER_SATOSHI*s.stakeShares/st;
   return{amount:BigInt(Math.round(Number(rawAmt)/BPD_CORRECTION)),exact:false};
 }
 
