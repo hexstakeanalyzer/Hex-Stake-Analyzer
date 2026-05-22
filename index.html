@@ -1271,7 +1271,7 @@ function isMobileWidth(){return window.innerWidth<=768;}
 // HEX deployed at the same address on Ethereum mainnet (Dec 2019) and PulseChain (forked May 2023).
 // State is independent per chain from fork day forward. Same ABI, same selectors, same yield math.
 const PLS_RPCS=['https://rpc.pulsechain.com','https://pulsechain-rpc.publicnode.com','https://rpc-pulsechain.g4mm4.io','https://pulsechain.drpc.org'];
-const ETH_RPCS=['https://ethereum-rpc.publicnode.com','https://rpc.ankr.com/eth','https://eth.llamarpc.com','https://1rpc.io/eth'];
+const ETH_RPCS=['https://ethereum-rpc.publicnode.com','https://eth.drpc.org','https://eth.merkle.io','https://0xrpc.io/eth','https://eth-mainnet.g.alchemy.com/public','https://endpoints.omniatech.io/v1/eth/mainnet/public'];
 function rpcsFor(chain){return chain==='eth'?ETH_RPCS:PLS_RPCS;}
 const HTS=1575331200,TSC=1e12,M72=(1n<<72n)-1n;
 
