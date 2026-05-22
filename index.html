@@ -1728,7 +1728,8 @@ function cy(sh,data){let t=0n;for(const p of data){const{pt,st}=ud(p);if(st>0n)t
 // the tail (days past what's cached) via RPC. When cache is empty, falls back to full RPC fetch.
 // Output shape unchanged: gddBy[chain] = {data: bigint[], bd: number} where data[i] = day bd+i.
 async function lgdd(minD,chain){
-  const cache=staticDailyData(chain);
+  const cacheRaw=staticDailyData(chain);
+  const cache=cacheRaw.map(v=>typeof v==='string'?BigInt(v):v);
   const cachedThrough=cache.length;  // cache covers days 0..cachedThrough-1
   if(cachedThrough>=hexDay){
     // Static cache covers everything we need. Zero RPC.
@@ -4755,7 +4756,7 @@ const COLS=[
   {key:'principal',lbl:'Principal',tip:'Original HEX amount locked in this stake'},
   {key:'tshares',lbl:'T-Shares',tip:'T-Shares minted for this stake. T-Shares determine your share of daily HEX payouts'},
   {key:'yield',lbl:'Yield',tip:'Total HEX yield earned (or received, if ended) from daily payouts'},
-  {key:'bpd',lbl:'Big Pay Day',tip:'HEX received from the one-time Big Pay Day (Day 353, Nov 19 2020) — all unclaimed BTC-holder HEX distributed to active stakers. PulseChain forked from Ethereum and inherited this event, so pHEX stakes open on Day 353 also received BPD. ENDED stakes show the exact settled amount derived from the on-chain StakeEnd record. ACTIVE stakes show an estimate (~) calculated from on-chain data with a historical correction factor validated to 0.00% error against reference data — the actual settled value will be very close. Stakes that started after Day 353 or ended before it show —.'},
+  {key:'bpd',lbl:'Big Pay Day',tip:'HEX received from the one-time Big Pay Day (Day 352, Nov 19 2020) — all unclaimed BTC-holder HEX distributed to active stakers. PulseChain forked from Ethereum and inherited this event, so pHEX stakes open on Day 352 also received BPD. ENDED stakes show the exact settled amount derived from the on-chain StakeEnd record. ACTIVE stakes show an estimate (~) calculated from on-chain data with a historical correction factor validated to 0.00% error against reference data — the actual settled value will be very close. Stakes that started after Day 352 or ended before it show —.'},
   {key:'apy',lbl:'APY',tip:'Effective annualized yield — (yield / principal) × (365 / days served) × 100'},
   {key:'daily',lbl:'Daily',tip:'Current daily HEX yield based on the most recent payout distribution'},
   {key:'cost',lbl:'Cost',tip:'USD cost basis — principal × HEX price (chain-specific) on the day the stake started'},
@@ -4868,7 +4869,7 @@ function sortStakes(arr,col,dir,gnum){
   });
 }
 
-// Big Pay Day (BPD) was HEX Day 353 — November 19, 2020.
+// Big Pay Day (BPD) was HEX Day 352 — November 19, 2020.
 // All unclaimed HEX from the 50-week Adoption Amplifier launch phase was distributed to active stakers.
 // It was a one-time event, never to be repeated.
 //
@@ -4877,7 +4878,7 @@ function sortStakes(arr,col,dir,gnum){
 //
 // Base formula: sat * HEARTS_PER_SATOSHI * stakeShares / dayStakeSharesTotal
 //
-// dayStakeSharesTotal on Day 353 = 28.1M T-Shares, recorded AFTER many stakes exited.
+// dayStakeSharesTotal on Day 352 = 28.1M T-Shares, recorded AFTER many stakes exited.
 // The true share pool during BPD distribution was ~49.9M T-Shares (close to Day 352).
 // Raw formula overstates BPD by BPD_CORRECTION = 1.7747 (= 49.9M / 28.1M).
 // Cross-validated against 6 go.hex.com reference ended stakes: error = 0.00%.
@@ -4887,7 +4888,7 @@ function sortStakes(arr,col,dir,gnum){
 // 1. Ended stakes (fromLog=true): exact BPD = s.yh (settled total) − gy(s) (regular inflation)
 // 2. Active/pending: approximate with BPD_CORRECTION applied
 // We always use ETH dailyData[353] — PulseChain forked from ETH and inherited this data.
-const BPD_DAY=353;
+const BPD_DAY=352;
 const M56=(1n<<56n)-1n;
 const HEARTS_PER_SATOSHI=10000n;
 const BPD_CORRECTION=1.7747;
