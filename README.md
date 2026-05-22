@@ -25,6 +25,9 @@ A fully client-side, single-file HTML tool that reads your native HEX stakes fro
 - **Active, pending, ended, and overdue stakes** with sortable table view
 - **Multi-wallet support** — add up to 10 wallets, view aggregated or filtered
 - **Sea creature league rankings** — 🐋 Whale, 🦈 Shark, 🐬 Dolphin, 🐙 Octopus, 🦀 Crab, 🦐 Shrimp — based on total active T-Shares
+- **HSI stake detection** — Hedron Stake Instances (tokenized and untokenized) discovered automatically via on-chain queries to the HSIM contract
+- **HTT stake detection** — HEX Time Token (Actuator-delegated) stakes discovered on PulseChain
+- **Stake type badges** — each stake labeled Native, HSI, or HTT so you can see how your stakes are held
 - **Big Pay Day (BPD) column** — historically validated with correction factor
 - **Totals row** on both Active and Ended stake tables — summed Principal, T-Shares, Yield, Cost, Value, and P&L
 
@@ -88,7 +91,8 @@ That's it. No install, no wallet connection, no private keys.
 | Source | What It Provides |
 |--------|-----------------|
 | **PulseChain RPCs** | Stake data, wallet balance, T-Share price, global info (4-node failover) |
-| **Ethereum RPCs** | Stake data, wallet balance, T-Share price, ended stake log scanning (publicnode + llamarpc) |
+| **Ethereum RPC** | Stake data, wallet balance, T-Share price, ended stake log scanning (publicnode) |
+| **Hedron (HSIM) Contract** | HSI stake discovery — untokenized, tokenized (ERC-721), and Actuator-delegated (PLS only) |
 | **DexScreener API** | Live pHEX price (PulseX DEX) and eHEX price (Uniswap) |
 | **CoinGecko API** | Price fallback per chain + 30-day sparkline |
 | **HEXDailyStats** | Historical on-chain DEX prices — eHEX from Day 1, pHEX from Day 1261 (hardcoded tables) |
@@ -110,11 +114,12 @@ This tool is **strictly read-only**:
 
 ## Technical Details
 
-- Single HTML file (~3,200 lines)
+- Single HTML file (~5,200 lines)
 - Pure JavaScript — no frameworks
 - External dependencies: [Chart.js](https://www.chartjs.org/) (charts) and [html2canvas](https://html2canvas.hertzen.com/) (snapshots), both loaded from CDN
 - Custom Keccak-256 implementation for contract selector computation
-- Ethereum ended stake discovery via batched `eth_getLogs` with 49,999-block chunks and 20-parallel concurrency
+- Ethereum ended stake discovery via batched `eth_getLogs` with 49,999-block chunks at concurrency 6
+- HSI/HTT discovery via four on-chain scan paths: native stakes, untokenized HSI, tokenized HSI (ERC-721), and Actuator-delegated (PulseChain only)
 - Complete daily price tables hardcoded from HEXDailyStats with CoinGecko runtime gap-fill
 
 ---
