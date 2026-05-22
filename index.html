@@ -3544,7 +3544,7 @@ async function fetchEndedFromLogsChunkedBatch(addrTopics,chain){
   const toBlock=await getBlockNumber(chain);
   if(toBlock==null)return{endLogs:[],startLogs:[]};
   const CHUNK=49999;
-  const CONCURRENCY=20;
+  const CONCURRENCY=6;
   const ranges=[];
   for(let b=fromBlock;b<=toBlock;b+=CHUNK){ranges.push([b,Math.min(b+CHUNK-1,toBlock)]);}
   const totalChunks=ranges.length;
