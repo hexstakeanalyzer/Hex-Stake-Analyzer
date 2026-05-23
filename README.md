@@ -15,10 +15,11 @@ A fully client-side, single-file HTML tool that reads your native HEX stakes fro
 - Ethereum ended stakes discovered via batched `eth_getLogs` scanning (~7–10 seconds for full history)
 
 ### Live Price Ticker
+- Bold dashboard-style ticker with large price display, glowing accent bars, and prominent chain tags
 - DexScreener API per chain (PulseX DEX for pHEX, Uniswap for eHEX)
 - CoinGecko fallback per chain
 - 24h change, 24h high/low
-- 30-day sparkline chart
+- Large 30-day sparkline charts with gradient fill
 - HEX Day counter with live per-second countdown to next day
 
 ### Stake Analysis
@@ -66,7 +67,7 @@ A fully client-side, single-file HTML tool that reads your native HEX stakes fro
 - Per-chain price overrides with unified gold frame visual treatment
 
 ### Additional Features
-- **Wallet balance** — liquid (unstaked) HEX with USD value per chain
+- **Wallet balance** — liquid (unstaked) HEX with per-token breakdown: pHEX, eHEX, and bridged eHEX on PulseChain, each with individual USD valuation
 - **Next Stake Ending alert** — prominent banner with urgency coloring
 - **Shareable snapshots** — generate downloadable PNG of your dashboard (via html2canvas)
 - **Info tooltips** — hover any card, chart, or metric for a plain-English explanation
@@ -93,6 +94,7 @@ That's it. No install, no wallet connection, no private keys.
 | **PulseChain RPCs** | Stake data, wallet balance, T-Share price, global info (4-node failover) |
 | **Ethereum RPC** | Stake data, wallet balance, T-Share price, ended stake log scanning (publicnode) |
 | **Hedron (HSIM) Contract** | HSI stake discovery — untokenized, tokenized (ERC-721), and Actuator-delegated (PLS only) |
+| **Bridged eHEX Contract** | Wallet balance detection for eHEX held on PulseChain (bridged via PulseChain Bridge) |
 | **DexScreener API** | Live pHEX price (PulseX DEX) and eHEX price (Uniswap) |
 | **CoinGecko API** | Price fallback per chain + 30-day sparkline |
 | **HEXDailyStats** | Historical on-chain DEX prices — eHEX from Day 1, pHEX from Day 1261 (hardcoded tables) |
@@ -114,13 +116,14 @@ This tool is **strictly read-only**:
 
 ## Technical Details
 
-- Single HTML file (~5,200 lines)
+- Single HTML file (~5,500 lines)
 - Pure JavaScript — no frameworks
 - External dependencies: [Chart.js](https://www.chartjs.org/) (charts) and [html2canvas](https://html2canvas.hertzen.com/) (snapshots), both loaded from CDN
 - Custom Keccak-256 implementation for contract selector computation
 - Ethereum ended stake discovery via batched `eth_getLogs` with 49,999-block chunks at concurrency 6
 - HSI/HTT discovery via four on-chain scan paths: native stakes, untokenized HSI, tokenized HSI (ERC-721), and Actuator-delegated (PulseChain only)
-- Complete daily price tables hardcoded from HEXDailyStats with CoinGecko runtime gap-fill
+- Complete daily price tables and payout data hardcoded from HEXDailyStats and CoinGecko, with runtime gap-fill for days after the last static entry
+- Bridged eHEX detection via `balanceOf` on the PulseChain bridge contract (`0x57fd...9225`)
 
 ---
 
