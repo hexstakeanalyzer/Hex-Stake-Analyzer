@@ -1473,8 +1473,10 @@ async function fetchHSIStakes(addr,chain){
     fetchHSIUntokenized(addr,chain),
     fetchHSITokenized(addr,chain),
   ];
-  // Ended-HSI log scans are expensive (chunked block scanning) — only run if probes detected HSI activity
-  if(hasActivity) tasks.push(fetchEndedHSIStakes(addr,chain));
+  // Ended-HSI log scans are expensive (chunked block scanning) — only run if probes detected HSI activity.
+  // ETH exception: always run on ETH because probes check current hsiCount/balanceOf which return 0
+  // when all HSIs are already ended, causing ended HSI stakes to be missed entirely.
+  if(hasActivity || chain==='eth') tasks.push(fetchEndedHSIStakes(addr,chain));
   // Actuator is PulseChain only
   if(chain==='pls'){
     tasks.push(fetchActuatorStakes(addr));
@@ -1605,7 +1607,8 @@ async function fetchEndedHSIStakes(addr,chain){
     let logs=[];
 
     if(chain==='eth'){
-      // ETH: chunked scan — 49999 block chunks (publicnode limit 50000)
+      // ETH: chunked scan — 49999 block chunks (publicnode's limit)
+      // Concurrency 3: runs alongside the main ETH log scan sharing publicnode
       const toBlock=await getBlockNumber(chain);
       if(!toBlock){return stakes;}
       const CHUNK=49999;
@@ -1624,7 +1627,7 @@ async function fetchEndedHSIStakes(addr,chain){
         }
         return[];
       });
-      const chunkResults=await runConcurrent(chunkTasks,10);
+      const chunkResults=await runConcurrent(chunkTasks,3);
       for(const cr of chunkResults){if(cr&&!cr.error)logs.push(...cr);}
     }else{
       // PLS: single call works fine on PulseChain RPCs
@@ -3854,19 +3857,49 @@ function renderWalletList(){
 //
 // Per chain per wallet: 3 RPC calls (count, balance, log query). All parallelized.
 // Total for 1 wallet on 2 chains: 6 calls in 1-2 RPC round trips.
-// Fetch all stake data for one wallet on one chain: active stakes, balance, and ended-stake
-// history (via log scan). All three run in parallel since they're independent.
-// PLS log scan is fast (single call). ETH log scan uses smart starting block + larger chunks.
+// Fetch all stake data for one wallet on one chain: active stakes, balance, ended-stake
+// history (via log scan), and HSI/HTT stakes. PLS runs all in parallel (4 RPCs).
+// ETH runs HSI scan after main log scan completes to avoid overloading publicnode.
 async function fetchWalletData(addr,chain){
   const count=await gsc(addr,chain);
   const stakeTasks=[];
   for(let i=0;i<count;i++)stakeTasks.push(()=>gs(addr,i,chain));
-  // Run native + HSI/Actuator + balance + ended logs ALL in parallel
-  const [stakeResults,liquidHearts,logEnded,hsiStakes]=await Promise.all([
+  // PLS: run everything in parallel (4 reliable RPCs handle the load)
+  // ETH: run HSI scan AFTER main log scan to avoid competing for publicnode
+  if(chain==='pls'){
+    const [stakeResults,liquidHearts,logEnded,hsiStakes]=await Promise.all([
+      runConcurrent(stakeTasks,6),
+      gbal(addr,chain),
+      fetchEndedStakesFromLogs(addr,chain).catch(()=>[]),
+      fetchHSIStakes(addr,chain).catch(()=>[])
+    ]);
+    const stakes=[];
+    for(const s of stakeResults){
+      if(!s||s.error)continue;
+      if(s.stakedDays>0){s.owner=addr;s.chain=chain;s.stakeType='Native';stakes.push(s);}
+    }
+    const activeIds=new Set(stakes.map(s=>s.stakeId.toString()));
+    for(const es of logEnded){
+      if(!activeIds.has(es.stakeId.toString())){
+        es.owner=addr;es.chain=chain;es.stakeType='Native';stakes.push(es);
+      }
+    }
+    if(hsiStakes.length>0){
+      const existingIds=new Set(stakes.map(s=>s.stakeId.toString()));
+      for(const hs of hsiStakes){
+        if(!existingIds.has(hs.stakeId.toString())){
+          stakes.push(hs);
+          existingIds.add(hs.stakeId.toString());
+        }
+      }
+    }
+    return{stakes,liquidHearts,chain,addr};
+  }
+  // ETH path: native + balance + main log scan in parallel, then HSI scan sequentially
+  const [stakeResults,liquidHearts,logEnded]=await Promise.all([
     runConcurrent(stakeTasks,6),
     gbal(addr,chain),
-    fetchEndedStakesFromLogs(addr,chain).catch(()=>[]),
-    fetchHSIStakes(addr,chain).catch(()=>[])
+    fetchEndedStakesFromLogs(addr,chain).catch(()=>[])
   ]);
   const stakes=[];
   for(const s of stakeResults){
@@ -3879,7 +3912,8 @@ async function fetchWalletData(addr,chain){
       es.owner=addr;es.chain=chain;es.stakeType='Native';stakes.push(es);
     }
   }
-  // ── Merge HSI/Actuator stakes (discovered in parallel above) ──
+  // Now that publicnode is free, run HSI scan
+  const hsiStakes=await fetchHSIStakes(addr,chain).catch(()=>[]);
   if(hsiStakes.length>0){
     const existingIds=new Set(stakes.map(s=>s.stakeId.toString()));
     for(const hs of hsiStakes){
@@ -4125,18 +4159,19 @@ async function go(){
       document.getElementById('dash').style.display='block';
       document.getElementById('share-btn').style.display='flex';
 
-      // 2b: HSI on Ethereum (if detected)
-      const ethHasHSI=Array.from(walletHSI.values()).some(v=>v.eth);
-      if(ethHasHSI){
-        addSubPhase('eth','eth-hsi','HSI stakes on Ethereum','active');
-        updatePhase('eth-hsi',{status:'active',detail:'<span class="c-hsi">HSI stakes</span> detected on <span class="c-eth">Ethereum</span> — scanning…'});
-        await runHSI('eth');
-        const ethCounts=countTypes('eth');
+      // 2b: HSI on Ethereum — always run (probes can't detect ended-only HSI activity)
+      addSubPhase('eth','eth-hsi','HSI stakes on Ethereum','active');
+      updatePhase('eth-hsi',{status:'active',detail:'Scanning <span class="c-hsi">HSI stakes</span> on <span class="c-eth">Ethereum</span>…'});
+      await runHSI('eth');
+      const ethCounts=countTypes('eth');
+      if(ethCounts.hsi>0){
         let hsiDetail=[];
         if(ethCounts.hsi>0)hsiDetail.push(ethCounts.hsi+' HSI');
         updatePhase('eth-hsi',{status:'done',detail:hsiDetail.join(' · ')});
-        rerenderFromCache();
+      }else{
+        updatePhase('eth-hsi',{status:'done',detail:'none found'});
       }
+      rerenderFromCache();
 
       // Ethereum complete
       const ethFinal=countTypes('eth');
