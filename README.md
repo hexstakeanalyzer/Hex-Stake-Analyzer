@@ -105,8 +105,8 @@ That's it. No install, no wallet connection, no private keys.
 
 This tool is **strictly read-only**:
 
-- No localStorage, sessionStorage, or cookies
-- No backend, no analytics, no tracking
+- sessionStorage only (wallet addresses and chain mode persist across page refreshes, automatically cleared when you close the tab)
+- No localStorage, no cookies, no backend, no analytics, no tracking
 - No wallet connection or private keys required
 - All data lives in browser memory and is gone when you close the tab
 - The only network calls are blockchain RPC reads and public price API fetches
