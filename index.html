@@ -1141,13 +1141,13 @@ html,body{background:#07090f;min-height:100%;}
       <div class="about-header"><span class="about-title">About This Tool</span><button class="about-close" onclick="closeAbout()">&times;</button></div>
       <div class="about-sec">
         <div class="about-sec-title">What It Does</div>
-        <p>A fully client-side HEX stake analyzer for both PulseChain (pHEX) and Ethereum (eHEX). Reads your native HEX stakes directly from the blockchain on either or both chains, calculates yield, fetches live prices, and renders an interactive dashboard — all in your browser.</p>
+        <p>A fully client-side HEX stake analyzer for both PulseChain (pHEX) and Ethereum (eHEX). Reads your native HEX stakes, HSI (Hedron Staked Instances), and HTT (HEX Time Token) stakes directly from the blockchain on either or both chains, calculates yield, fetches live prices, and renders an interactive dashboard — all in your browser.</p>
         <p>Toggle between PulseChain only, Ethereum only, or both chains together. When viewing both, each stake is correctly valued at its own chain's live price — pHEX and eHEX trade independently since the May 2023 fork.</p>
-        <p>Supports multi-wallet analysis with aggregated and per-wallet/per-chain views, sortable stake tables, cost basis tracking, P&amp;L, effective APY, daily yield rate, T-Share metrics, and shareable snapshots.</p>
+        <p>Supports multi-wallet analysis with aggregated and per-wallet/per-chain views, sortable stake tables, cost basis tracking, P&amp;L, effective APY, daily yield rate, T-Share metrics, bridged eHEX detection on PulseChain, and shareable snapshots.</p>
       </div>
       <div class="about-sec">
         <div class="about-sec-title">Data Sources</div>
-        <p><strong style="color:var(--tx);">Stake Data:</strong> Read directly from the HEX contract via public RPCs. PulseChain: 4 nodes with failover (rpc.pulsechain.com et al.). Ethereum: 4 nodes with failover (publicnode, Ankr, dRPC, llamarpc). The HEX contract address is identical on both chains; state is independent since the fork.</p>
+        <p><strong style="color:var(--tx);">Stake Data:</strong> Read directly from the HEX contract via public RPCs. PulseChain: 4 nodes with failover (rpc.pulsechain.com et al.). Ethereum: publicnode (primary), with additional candidates tested at runtime. The HEX contract address is identical on both chains; state is independent since the fork.</p>
         <p><strong style="color:var(--tx);">Live Price:</strong> DexScreener API per chain — PulseX DEX for pHEX, Uniswap for eHEX (highest-liquidity pair). Falls back to CoinGecko (hex-pulsechain / hex) per chain if unavailable.</p>
         <p><strong style="color:var(--tx);">Historical Prices:</strong> Two-tier resolution. Primary: hardcoded tables generated from HEXDailyStats.com on-chain DEX data (eHEX from Day 1, pHEX from Day 1261). Fallback: any day not in the static table is fetched at runtime from CoinGecko's market_chart/range endpoint (free tier, no key) — covers days published since the last table refresh, and any future scenario where HEXDailyStats becomes unreachable.</p>
         <p><strong style="color:var(--tx);">T-Share Price:</strong> Derived on-chain from each chain's HEX contract globalInfo() shareRate. The two chains have independent share rates since the fork.</p>
@@ -1156,7 +1156,7 @@ html,body{background:#07090f;min-height:100%;}
       <div class="about-sec">
         <div class="about-sec-title">Security &amp; Privacy</div>
         <p>This tool is <strong style="color:#00FF66;">strictly read-only</strong>. No localStorage, no cookies, no backend, no analytics, no tracking. Zero permanent footprint on your device.</p>
-        <p>All data lives in browser memory for the duration of your session and is gone when you close the tab. A temporary session cache speeds up re-scans but is automatically erased when the tab closes. Wallet addresses are never stored permanently or transmitted to any server. The only network calls are blockchain RPC reads and public price API fetches.</p>
+        <p>All data lives in browser memory for the duration of your session and is gone when you close the tab. A temporary sessionStorage cache speeds up re-scans within the same tab but is automatically erased when the tab closes. Wallet addresses are never stored permanently or transmitted to any server. The only network calls are blockchain RPC reads and public price API fetches.</p>
         <p>No wallet connection required. No private keys. No signatures. Just paste a public address.</p>
       </div>
       <div class="about-sec">
