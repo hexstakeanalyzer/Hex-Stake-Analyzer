@@ -398,6 +398,7 @@ html,body{background:#07090f;min-height:100%;}
 .stbl tfoot .tf-cost{color:#00FF66;}
 .stbl tfoot .tf-val{color:#00FF66;}
 .stbl tfoot .tf-pnl-g{color:#00FF66;}.stbl tfoot .tf-pnl-r{color:#ff5c5c;}.stbl tfoot .tf-pnl-n{color:var(--mu);}
+.stbl tfoot .tf-sub{display:block;font-size:9px;font-weight:600;color:rgba(255,255,255,0.35);text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;}
 .r-gn{font-weight:700;font-size:12px;}
 .r-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:.04em;}
 .r-prog{font-weight:700;}
@@ -3193,8 +3194,10 @@ function renderTicker(){
   if(tspEl){
     if(chainMode==='both'){
       const showPLS=tsharePriceBy.pls>0,showETH=tsharePriceBy.eth>0;
-      if(showPLS&&showETH)tspEl.innerHTML=`<span style="font-size:14px;color:#FF00CC;">⬡ $${tsharePriceBy.pls.toFixed(2)}</span><br><span style="font-size:14px;color:#00CFFF;">◆ $${tsharePriceBy.eth.toFixed(2)}</span>`;
-      else if(showPLS)tspEl.textContent='$'+tsharePriceBy.pls.toFixed(2);
+      const bdEl=document.getElementById('tsp-breakdown');
+      if(bdEl&&showPLS&&showETH){
+        bdEl.innerHTML=`<div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt" style="color:#FF00CC;">$${tsharePriceBy.pls.toFixed(2)}</span><span class="wb-usd">${Math.round(hexPerTShareBy.pls).toLocaleString()} HEX</span></div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt" style="color:#00CFFF;">$${tsharePriceBy.eth.toFixed(2)}</span><span class="wb-usd">${Math.round(hexPerTShareBy.eth).toLocaleString()} HEX</span></div>`;
+      }else if(showPLS)tspEl.textContent='$'+tsharePriceBy.pls.toFixed(2);
       else if(showETH)tspEl.textContent='$'+tsharePriceBy.eth.toFixed(2);
     }else{
       const tp=tsharePriceBy[chainMode];
@@ -4610,14 +4613,25 @@ function renderAll(stakes,liquidByChain){
 
   // T-Share holdings USD: per-chain T-Shares × that chain's T-Share price
   let actTSVal=0;
+  const actTSValBy={pls:0,eth:0};
   ['pls','eth'].forEach(ch=>{
     const tsCh=act.filter(s=>(s.chain||'pls')===ch).reduce((a,s)=>a+s.stakeShares,0n);
-    if(tsharePriceBy[ch]>0)actTSVal+=Number(tsCh)/TSC*tsharePriceBy[ch];
+    if(tsharePriceBy[ch]>0){const v=Number(tsCh)/TSC*tsharePriceBy[ch];actTSVal+=v;actTSValBy[ch]=v;}
   });
 
   // Yield USD: per-stake at its chain price
   let aYieldUSD=0;
   act.forEach(s=>{const lp=priceFor(s.chain||'pls');if(lp>0)aYieldUSD+=Number(s.yh||0n)/1e8*lp;});
+
+  // Per-chain T-Shares and yield for card breakdown
+  const tsByChainData={pls:{ts:0n,yh:0n,yUSD:0},eth:{ts:0n,yh:0n,yUSD:0}};
+  act.forEach(s=>{
+    const ch=s.chain||'pls';
+    tsByChainData[ch].ts+=s.stakeShares;
+    tsByChainData[ch].yh+=(s.yh||0n);
+    const lp=priceFor(ch);
+    if(lp>0)tsByChainData[ch].yUSD+=Number(s.yh||0n)/1e8*lp;
+  });
 
   // For display of pendingNow combined: same per-chain logic
   const cNow=aNow+pNow;
@@ -4630,6 +4644,7 @@ function renderAll(stakes,liquidByChain){
 
   // ── Daily yield rate from latest day's payout data, summed per chain ──
   let dailyYieldHex=0,dailyYieldUSD=0;
+  const dyByChain={pls:{hex:0,usd:0},eth:{hex:0,usd:0}};
   ['pls','eth'].forEach(ch=>{
     const gdd=gddBy[ch];
     if(!gdd||!gdd.data.length)return;
@@ -4644,9 +4659,43 @@ function renderAll(stakes,liquidByChain){
       }
     });
     const dyHex=Number(totalDailyYield)/1e8;
+    const dyUSD=priceFor(ch)>0?dyHex*priceFor(ch):0;
+    dyByChain[ch]={hex:dyHex,usd:dyUSD};
     dailyYieldHex+=dyHex;
-    if(priceFor(ch)>0)dailyYieldUSD+=dyHex*priceFor(ch);
+    dailyYieldUSD+=dyUSD;
   });
+
+  // ── Weighted average APY across all active stakes ──
+  let wApyNum=0,wApyDen=0;
+  act.forEach(s=>{
+    const ip=sst(s)==='pending';
+    if(ip)return;
+    const ha=Number(s.stakedHearts)/1e8;
+    const yh=Number(s.yh||0n)/1e8;
+    const sv=Math.max(0,(hexDay||chd())-s.lockedDay);
+    if(sv>0&&ha>0&&yh>0){
+      const apy=yh/ha*(365/sv)*100;
+      wApyNum+=apy*ha;
+      wApyDen+=ha;
+    }
+  });
+  const wApy=wApyDen>0?wApyNum/wApyDen:null;
+
+  // ── Weighted average APY across ended stakes ──
+  let eApyNum=0,eApyDen=0;
+  ended.forEach(s=>{
+    const ha=Number(s.stakedHearts)/1e8;
+    const yh=Number(s.yh||0n)/1e8;
+    const sv=s.unlockedDay>0?s.unlockedDay-s.lockedDay:0;
+    if(sv>0&&ha>0&&yh>0){
+      const apy=yh/ha*(365/sv)*100;
+      eApyNum+=apy*ha;
+      eApyDen+=ha;
+    }
+  });
+  const eApy=eApyDen>0?eApyNum/eApyDen:null;
+  // Combined APY (active + ended weighted together)
+  const cApy=(wApyDen+eApyDen)>0?(wApyNum+eApyNum)/(wApyDen+eApyDen):null;
 
   // ── Yesterday's payout per T-Share per chain ──
   let plsPayPerTS=0,ethPayPerTS=0;
@@ -4667,31 +4716,36 @@ function renderAll(stakes,liquidByChain){
   const ethPayStr=ethPayPerTS>0?ethPayPerTS.toFixed(3)+' HEX':'—';
   const showPayPerTS=plsPayPerTS>0||ethPayPerTS>0;
   const ii=(tip)=>`<div class="info-i" onclick="this.classList.toggle('active')">i</div><div class="info-tip">${tip}</div>`;
-  const TIP_AS='Number of active stakes currently earning yield. Overdue stakes (past end date + 14 day grace) are included in the total.';
+  const TIP_AS='Number of active stakes currently earning yield, including Native, HSI (Hedron Stake Instance), and HTT (HEX Time Token) stakes. Overdue stakes (past end date + 14 day grace) are included in the total.';
   const TIP_SH='Total HEX principal locked across all active stakes. Does not include earned yield.';
   const TIP_CV='USD value of your active stakes including both principal and accumulated yield. Each stake is valued at its own chain\'s live price (eHEX vs pHEX) — they trade at different prices.';
   const TIP_CB='What you paid for your active stakes in USD, based on the HEX price the day each stake started, on its respective chain. PulseChain stakes that originated from the Ethereum fork (before Day 1256) have a $0 cost basis — they were free copies.';
   const TIP_PL='Unrealized P&L from active stakes: Current Value minus Cost Basis. Green = profit, red = loss. Per-chain pricing applied — an eHEX stake uses eHEX prices, a pHEX stake uses pHEX prices.';
-  const TIP_TS='Your T-Share count across active stakes. T-Shares determine your share of daily HEX payouts (per chain). Yield shown is total earned so far. Lifetime Total = all T-Shares ever minted by this wallet, including ended stakes whose T-Shares have been burned.';
-  const TIP_TP='Current price to mint 1 T-Share, derived on-chain from the HEX contract\'s shareRate. Rises over time as more stakes end. The two chains have independent share rates since the PulseChain fork.';
-  const TIP_DY='How much HEX your active stakes are earning per day based on the most recent daily payout. Calculated from your T-Share count and the pool\'s daily payout distribution, per chain. "Yesterday per T-Share" shows the raw network payout per T-Share from the previous day — useful for comparing pHEX and eHEX chain yield independently of your stake size.';
-  const TIP_RPL='Realized P&L from ended stakes. Compares cost (HEX price at stake start × principal) vs exit value (HEX price at unstake date × principal + yield), per chain.';
+  const TIP_TS='Your T-Share count across all active stakes (Native, HSI, and HTT). T-Shares determine your share of daily HEX payouts (per chain). Yield shown is total earned so far. Lifetime Total = all T-Shares ever minted by this wallet, including ended stakes whose T-Shares have been burned. Network share shows what percentage of all T-Shares on each chain belong to you.';
+  const TIP_TP='Current price to mint 1 T-Share, derived on-chain from the HEX contract\'s shareRate. Rises over time as more stakes end. The two chains have independent share rates since the PulseChain fork. Avg Paid shows your weighted average USD cost per T-Share across all active stakes. High/Low show the most and least expensive T-Shares you minted — green is your cheapest, red is your most expensive.';
+  const TIP_DY='How much HEX your active stakes are earning per day based on the most recent daily payout. Calculated from your T-Share count and the pool\'s daily payout distribution, per chain. "Yesterday per T-Share" shows the raw network payout per T-Share from the previous day — useful for comparing pHEX and eHEX chain yield independently of your stake size. Active APY: weighted average annualized yield across active stakes. Ended APY: weighted average across ended stakes using actual served days. Combined: all stakes weighted together. Formula: each stake\'s APY (yield / principal × 365 / days served) weighted by principal. Pending stakes and stakes with no yield are excluded.';
+  const TIP_RPL='Realized P&L from ended stakes. Cost = HEX price on the day the stake started × principal. Exit value = HEX price on the day the stake ended × (principal + yield). Per-chain pricing: eHEX stakes use eHEX prices, pHEX stakes use pHEX prices. This uses exit-day pricing (what you could have sold for when you unstaked), not today\'s live price.';
   const TIP_LIQ='Liquid (unstaked) HEX in the wallet. Available to send, swap, or restake. Not locked in any active stake. Includes bridged eHEX held on PulseChain, valued at eHEX price. When viewing both chains, balances from each are summed in USD.';
 
   // ── Realized P&L from ended stakes — per-stake chain-aware pricing ──
   let rCost=0,rExit=0,rCC=0;
+  const rPnlBy={pls:{cost:0,exit:0,cc:0},eth:{cost:0,exit:0,cc:0}};
   ended.forEach(s=>{
+    const ch=s.chain||'pls';
     const endP=priceForStake(s,s.unlockedDay);
     if(endP==null)return;
     const ha2=Number(s.stakedHearts)/1e8;
     const yh2=Number(s.yh||0n)/1e8;
     // Forked copies have $0 cost basis — all exit value is pure profit
-    if(isForkedCopy(s)){rExit+=(ha2+yh2)*endP;rCC++;return;}
+    if(isForkedCopy(s)){rExit+=(ha2+yh2)*endP;rCC++;rPnlBy[ch].exit+=(ha2+yh2)*endP;rPnlBy[ch].cc++;return;}
     const startP=priceForStake(s,s.lockedDay);
     if(startP==null)return;
     rCost+=ha2*startP;
     rExit+=(ha2+yh2)*endP;
     rCC++;
+    rPnlBy[ch].cost+=ha2*startP;
+    rPnlBy[ch].exit+=(ha2+yh2)*endP;
+    rPnlBy[ch].cc++;
   });
   const rPnl=rCC>0?rExit-rCost:null;
   const rPct=rCost>0&&rPnl!==null?rPnl/rCost*100:null;
@@ -4770,11 +4824,11 @@ function renderAll(stakes,liquidByChain){
   }
 
   let tspCardVal,tspCardSub;
+  const tspBothPriced=chainMode==='both'&&tsharePriceBy.pls>0&&tsharePriceBy.eth>0;
   if(chainMode==='both'){
     const showPLS=tsharePriceBy.pls>0,showETH=tsharePriceBy.eth>0;
     if(showPLS&&showETH){
-      tspCardVal=`<span style="font-size:14px;color:#FF00CC;">⬡ $${tsharePriceBy.pls.toFixed(2)}</span><br><span style="font-size:14px;color:#00CFFF;">◆ $${tsharePriceBy.eth.toFixed(2)}</span>`;
-      tspCardSub=`pHEX ${Math.round(hexPerTShareBy.pls).toLocaleString()} / eHEX ${Math.round(hexPerTShareBy.eth).toLocaleString()} HEX/T-S`;
+      tspCardVal='';tspCardSub='';
     }else{
       const ch=showPLS?'pls':'eth';
       tspCardVal=tsharePriceBy[ch]>0?'$'+tsharePriceBy[ch].toFixed(2):'—';
@@ -4791,10 +4845,10 @@ function renderAll(stakes,liquidByChain){
   if(chainMode==='both'){
     const tsByChain={pls:0n,eth:0n};
     act.forEach(s=>{tsByChain[s.chain||'pls']+=s.stakeShares;});
-    const parts=[];
-    if(globalSharesTotalBy.pls>0n&&tsByChain.pls>0n)parts.push(`pHEX <span class="ts-sub-v">${(Number(tsByChain.pls)/Number(globalSharesTotalBy.pls)*100).toFixed(4)}%</span>`);
-    if(globalSharesTotalBy.eth>0n&&tsByChain.eth>0n)parts.push(`eHEX <span class="ts-sub-v">${(Number(tsByChain.eth)/Number(globalSharesTotalBy.eth)*100).toFixed(4)}%</span>`);
-    if(parts.length)networkShareHTML=`<div class="ts-sub">Network share: ${parts.join(' · ')}</div>`;
+    const rows=[];
+    if(globalSharesTotalBy.pls>0n&&tsByChain.pls>0n)rows.push(`<div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt">${(Number(tsByChain.pls)/Number(globalSharesTotalBy.pls)*100).toFixed(4)}%</span></div>`);
+    if(globalSharesTotalBy.eth>0n&&tsByChain.eth>0n)rows.push(`<div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt">${(Number(tsByChain.eth)/Number(globalSharesTotalBy.eth)*100).toFixed(4)}%</span></div>`);
+    if(rows.length)networkShareHTML=`<div class="ts-sub" style="margin-top:4px;">Network share:</div><div class="wb-breakdown" style="margin-top:2px;">${rows.join('')}</div>`;
   }else{
     const ch=chainMode;
     if(globalSharesTotalBy[ch]>0n){
@@ -4808,10 +4862,10 @@ function renderAll(stakes,liquidByChain){
     <div class="card c-pls"><div class="ctop"><div class="clbl">Current Value</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval pg">${anyLivePrice?'<span class="moon-val">$'+fb(aNow)+'</span>':'—'}</div><div class="csub">incl. yield</div>${hp?pr(anyLivePrice?'+$'+fb(pNow):'—')+cr(anyLivePrice?'$'+fb(cNow):'—'):''}${ii(TIP_CV)}</div>
     <div class="card c-hex"><div class="ctop"><div class="clbl">Total Cost Basis</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval hg">${aCC>0?'$'+fb(aCost):'—'}</div><div class="csub">${aCC===act.length&&act.length>0?'All '+act.length+' at price':aCC>0?aCC+' of '+act.length+' priced':''}</div>${hp?pr('—','Price not yet confirmed'):''}${ii(TIP_CB)}</div>
     <div class="card c-plsx"><div class="ctop"><div class="clbl">Unrealized P&amp;L</div><div class="cinds">${pnlInd}<div class="ci-dot"></div></div></div><div class="cval ${pnlC}">${pnlT}</div><div class="csub">active stakes</div>${hp?pr('—','Excluded until active'):''}${ii(TIP_PL)}</div>
-    <div class="card c-tsp"><div class="ctop"><div class="clbl">T-Share Price</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval tspg" id="tsp-val">${tspCardVal}</div><div class="ts-sub">${tspCardSub}</div>${actTSVal>0?`<div class="ts-sub" style="margin-top:2px;">Holdings: <span class="ts-sub-v moon-val">$${fb(actTSVal)}</span></div>`:''}${tsPaidHTML}${ii(TIP_TP)}</div>
-    <div class="card c-dy"><div class="ctop"><div class="clbl">Daily Yield Rate</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval dyg">${dailyYieldHex>0?fb(dailyYieldHex)+' HEX':'—'}</div><div class="ts-sub">${dailyYieldUSD>0?'<span class="moon-val">$'+fb(dailyYieldUSD)+'</span> / day':'—'}</div>${dailyYieldHex>0?`<div class="ts-sub">Monthly: <span class="ts-sub-v" style="color:#00FF66;">~${fb(dailyYieldHex*30)} HEX</span> · <span class="ts-sub-v moon-val" style="color:#00FF66 !important">$${fb(dailyYieldUSD*30)}</span></div>`:''}${ii(TIP_DY)}</div>
-    <div class="card c-ts"><div class="ctop"><div class="clbl">Active T-Shares</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval tsg">${ftsC(actTS)}</div><div class="ts-sub">Yield: <span class="ts-sub-v" style="color:#00FF66;">${fh(aYH)} HEX</span> · <span class="ts-sub-v moon-val" style="color:#00FF66 !important">$${fb(aYieldUSD)}</span></div><div class="ts-sub">Lifetime total: <span class="ts-sub-v">${ftsC(allTS)}</span></div>${networkShareHTML}${hp?pr(ftsC(pendTS)+' T-S pending'):''}${ii(TIP_TS)}</div>
-    <div class="card c-plsx"><div class="ctop"><div class="clbl">Realized P&amp;L</div><div class="cinds">${rPnlInd}<div class="ci-dot"></div></div></div><div class="cval ${rPnlC}">${rPnlT}</div><div class="csub">${rCC>0?rCC+' of '+ended.length+' ended priced':'no priced ended stakes'}</div>${ii(TIP_RPL)}</div>
+    <div class="card c-tsp"><div class="ctop"><div class="clbl">T-Share Price</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div>${tspBothPriced?`<div id="tsp-val" style="display:none"></div><div id="tsp-breakdown" class="wb-breakdown" style="margin-top:10px;border-top:none;padding-top:0;"><div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt" style="color:#FF00CC;">$${tsharePriceBy.pls.toFixed(2)}</span><span class="wb-usd">${Math.round(hexPerTShareBy.pls).toLocaleString()} HEX</span></div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt" style="color:#00CFFF;">$${tsharePriceBy.eth.toFixed(2)}</span><span class="wb-usd">${Math.round(hexPerTShareBy.eth).toLocaleString()} HEX</span></div></div>`:`<div class="cval tspg" id="tsp-val">${tspCardVal}</div>${tspCardSub?`<div class="ts-sub">${tspCardSub}</div>`:''}`}${actTSVal>0?`<div class="ts-sub" style="margin-top:6px;">Holdings: <span class="ts-sub-v moon-val">$${fb(actTSVal)}</span></div>`:''}${chainMode==='both'&&actTSValBy.pls>0&&actTSValBy.eth>0?`<div class="wb-breakdown" style="margin-top:4px;"><div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt moon-val">$${fb(actTSValBy.pls)}</span></div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt moon-val">$${fb(actTSValBy.eth)}</span></div></div>`:''}${tsPaidHTML}${ii(TIP_TP)}</div>
+    <div class="card c-dy"><div class="ctop"><div class="clbl">Daily Yield Rate</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval dyg">${dailyYieldHex>0?fb(dailyYieldHex)+' HEX':'—'}</div><div class="ts-sub">${dailyYieldUSD>0?'<span class="moon-val">$'+fb(dailyYieldUSD)+'</span> / day':'—'}</div>${chainMode==='both'&&dyByChain.pls.hex>0&&dyByChain.eth.hex>0?`<div class="wb-breakdown" style="margin-top:6px;"><div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt">${fb(dyByChain.pls.hex)}</span>${dyByChain.pls.usd>0?'<span class="wb-usd moon-val">$'+fb(dyByChain.pls.usd)+'</span>':''}</div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt">${fb(dyByChain.eth.hex)}</span>${dyByChain.eth.usd>0?'<span class="wb-usd moon-val">$'+fb(dyByChain.eth.usd)+'</span>':''}</div></div>`:''}${dailyYieldHex>0?`<div class="ts-sub"${chainMode==='both'&&dyByChain.pls.hex>0&&dyByChain.eth.hex>0?' style="margin-top:6px;"':''}>Monthly: <span class="ts-sub-v" style="color:#00FF66;">~${fb(dailyYieldHex*30)} HEX</span> · <span class="ts-sub-v moon-val" style="color:#00FF66 !important">$${fb(dailyYieldUSD*30)}</span></div>`:''}${wApy!==null||eApy!==null?`<div class="ts-sub" style="margin-top:4px;border-top:1px solid rgba(255,255,255,0.06);padding-top:5px;">${wApy!==null?`Active APY: <span class="ts-sub-v" style="color:#00d4aa;">${wApy.toFixed(1)}%</span>`:''}${eApy!==null?`${wApy!==null?'<br>':''}Ended APY: <span class="ts-sub-v" style="color:#00d4aa;">${eApy.toFixed(1)}%</span>`:''}${cApy!==null&&wApy!==null&&eApy!==null?`<br>Combined: <span class="ts-sub-v" style="color:#FFD700;">${cApy.toFixed(1)}%</span>`:''}</div>`:''}${ii(TIP_DY)}</div>
+    <div class="card c-ts"><div class="ctop"><div class="clbl">Active T-Shares</div><div class="cinds"><div class="ci-up">▲</div><div class="ci-dot"></div></div></div><div class="cval tsg">${ftsC(actTS)}</div>${chainMode==='both'&&tsByChainData.pls.ts>0n&&tsByChainData.eth.ts>0n?`<div class="wb-breakdown" style="margin-top:6px;"><div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt">${ftsC(tsByChainData.pls.ts)}</span><span class="wb-usd" style="color:#00FF66;">${fh(tsByChainData.pls.yh)} yield</span></div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt">${ftsC(tsByChainData.eth.ts)}</span><span class="wb-usd" style="color:#00FF66;">${fh(tsByChainData.eth.yh)} yield</span></div></div>`:''}<div class="ts-sub">Yield: <span class="ts-sub-v" style="color:#00FF66;">${fh(aYH)} HEX</span> · <span class="ts-sub-v moon-val" style="color:#00FF66 !important">$${fb(aYieldUSD)}</span></div><div class="ts-sub">Lifetime total: <span class="ts-sub-v">${ftsC(allTS)}</span></div>${networkShareHTML}${hp?pr(ftsC(pendTS)+' T-S pending'):''}${ii(TIP_TS)}</div>
+    <div class="card c-plsx"><div class="ctop"><div class="clbl">Realized P&amp;L</div><div class="cinds">${rPnlInd}<div class="ci-dot"></div></div></div><div class="cval ${rPnlC}">${rPnlT}</div><div class="csub">${rCC>0?rCC+' of '+ended.length+' ended priced':'no priced ended stakes'}</div>${chainMode==='both'&&rPnlBy.pls.cc>0&&rPnlBy.eth.cc>0?`<div class="wb-breakdown" style="margin-top:6px;"><div class="wb-row"><span class="wb-tag" style="color:#FF00CC;">⬡ pHEX</span><span class="wb-amt" style="color:${(rPnlBy.pls.exit-rPnlBy.pls.cost)>=0?'#00FF66':'#ff5c5c'};">${(rPnlBy.pls.exit-rPnlBy.pls.cost)>=0?'+':''} $${fb(Math.abs(rPnlBy.pls.exit-rPnlBy.pls.cost))}</span></div><div class="wb-row"><span class="wb-tag" style="color:#00CFFF;">◆ eHEX</span><span class="wb-amt" style="color:${(rPnlBy.eth.exit-rPnlBy.eth.cost)>=0?'#00FF66':'#ff5c5c'};">${(rPnlBy.eth.exit-rPnlBy.eth.cost)>=0?'+':''} $${fb(Math.abs(rPnlBy.eth.exit-rPnlBy.eth.cost))}</span></div></div>`:''}${ii(TIP_RPL)}</div>
     <div class="card c-hex"><div class="ctop"><div class="clbl">Wallet Balance</div><div class="cinds"><div class="ci-dot"></div></div></div><div class="cval hg">${fh(totalLiquidHearts)} HEX</div><div class="ts-sub">${liqUSD>0?'<span class="moon-val">$'+fb(liqUSD)+'</span>':'—'}</div>${(()=>{
       const pBal=liquidByChain.pls||0n,eBal=liquidByChain.eth||0n,bBal=bridgedEhex;
       const pP=priceFor('pls'),eP=priceFor('eth');
@@ -5076,7 +5130,7 @@ const COLS=[
   {key:'tshares',lbl:'T-Shares',tip:'T-Shares minted for this stake. T-Shares determine your share of daily HEX payouts'},
   {key:'yield',lbl:'Yield',tip:'Total HEX yield earned (or received, if ended) from daily payouts'},
   {key:'bpd',lbl:'Big Pay Day',tip:'HEX received from the one-time Big Pay Day (Day 352, Nov 19 2020) — all unclaimed BTC-holder HEX distributed to active stakers. PulseChain forked from Ethereum and inherited this event, so pHEX stakes open on Day 352 also received BPD. ENDED stakes show the exact settled amount derived from the on-chain StakeEnd record. ACTIVE stakes show an estimate (~) calculated from on-chain data with a historical correction factor validated to 0.00% error against reference data — the actual settled value will be very close. Stakes that started after Day 352 or ended before it show —.'},
-  {key:'apy',lbl:'APY',tip:'Effective annualized yield — (yield / principal) × (365 / days served) × 100'},
+  {key:'apy',lbl:'APY',tip:'Effective annualized yield — (yield / principal) × (365 / days served) × 100. The TOTALS row shows the weighted average APY across all stakes in this tab, weighted by principal. Ended stakes use actual served days.'},
   {key:'daily',lbl:'Daily',tip:'Current daily HEX yield based on the most recent payout distribution'},
   {key:'cost',lbl:'Cost',tip:'USD cost basis — principal × HEX price (chain-specific) on the day the stake started'},
   {key:'value',lbl:'Value',tip:'Current USD value of principal + accumulated yield at this stake\'s chain live price'},
@@ -5349,6 +5403,7 @@ function buildStakeTable(stakes,gnum,isEnded){
   const sorted=sortStakes(stakes,isEnded?endedSortCol:sortCol,isEnded?endedSortDir:sortDir,gnum);
   // Compute totals for footer
   let tPrinc=0n, tTS=0n, tYield=0n, tCost=0, tVal=0, costCount=0, valCount=0;
+  let tApyNum=0,tApyDen=0;
   stakes.forEach(s=>{
     tPrinc+=s.stakedHearts;
     tTS+=s.stakeShares;
@@ -5367,7 +5422,17 @@ function buildStakeTable(stakes,gnum,isEnded){
     const ep=ie?(priceForStake(s,s.unlockedDay)??null):null;
     const cv=ie?(ep!==null?(ha+yh)*ep:null):(lp>0&&!ip?(ha+yh)*lp:null);
     if(cv!==null){tVal+=cv;valCount++;}
+    // Weighted APY (active uses hexDay-lockedDay, ended uses unlockedDay-lockedDay)
+    if(!ip){
+      const sv=ie?(s.unlockedDay>0?s.unlockedDay-s.lockedDay:0):Math.max(0,(hexDay||chd())-s.lockedDay);
+      if(sv>0&&ha>0&&yh>0){
+        const apy=yh/ha*(365/sv)*100;
+        tApyNum+=apy*ha;
+        tApyDen+=ha;
+      }
+    }
   });
+  const tApy=tApyDen>0?tApyNum/tApyDen:null;
   const tPnl=(costCount>0&&valCount>0&&tCost>0)?tVal-tCost:null;
   const tPct=(tPnl!==null&&tCost>0)?tPnl/tCost*100:null;
   // Build footer cells matching column order
@@ -5375,16 +5440,17 @@ function buildStakeTable(stakes,gnum,isEnded){
   const footCells=cols.map(c=>{
     switch(c.key){
       case'num':return`<td><span class="tf-lbl">TOTALS</span></td>`;
-      case'principal':return`<td class="tf-hex">${fh(tPrinc)}</td>`;
-      case'tshares':return`<td class="tf-ts">${fts(tTS)}</td>`;
-      case'yield':return`<td class="tf-yield">${tYield>0n?fh(tYield):'—'}</td>`;
-      case'cost':return`<td class="tf-cost">${costCount>0?'$'+fb(tCost):'—'}</td>`;
-      case'value':return`<td class="tf-val">${valCount>0?'$'+fb(tVal):'—'}</td>`;
+      case'principal':return`<td class="tf-hex"><span class="tf-sub">Principal</span>${fh(tPrinc)}</td>`;
+      case'tshares':return`<td class="tf-ts"><span class="tf-sub">T-Shares</span>${fts(tTS)}</td>`;
+      case'yield':return`<td class="tf-yield"><span class="tf-sub">Yield</span>${tYield>0n?fh(tYield):'—'}</td>`;
+      case'cost':return`<td class="tf-cost"><span class="tf-sub">Cost</span>${costCount>0?'$'+fb(tCost):'—'}</td>`;
+      case'value':return`<td class="tf-val"><span class="tf-sub">Value</span>${valCount>0?'$'+fb(tVal):'—'}</td>`;
       case'change':{
         const cls=tPct===null?'tf-pnl-n':tPct>=0?'tf-pnl-g':'tf-pnl-r';
         const sgn=tPct!==null&&tPct>=0?'+':'';
-        return`<td class="${cls}">${tPct!==null?sgn+tPct.toFixed(1)+'%':'—'}</td>`;
+        return`<td class="${cls}"><span class="tf-sub">P&L</span>${tPct!==null?sgn+tPct.toFixed(1)+'%':'—'}</td>`;
       }
+      case'apy':return`<td class="tf-val"><span class="tf-sub">Avg APY</span>${tApy!==null?tApy.toFixed(1)+'%':'—'}</td>`;
       default:return'<td></td>';
     }
   }).join('');
