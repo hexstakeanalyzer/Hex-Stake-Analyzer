@@ -4,7 +4,7 @@ A single-file, client-side dashboard for HEX stakes across **PulseChain** and **
 
 **Zero backend. Zero analytics. Only your recent addresses are saved locally, and only on this device.**
 
-Live: <https://hexstakeanalyzer.github.io>
+Live: <https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/>
 
 ---
 
@@ -40,7 +40,7 @@ Live: <https://hexstakeanalyzer.github.io>
 
 ## How to Use
 
-1. Open `HSA v54.html` in any modern browser (or visit [hexstakeanalyzer.github.io](https://hexstakeanalyzer.github.io))
+1. Open `HSA v54.html` in any modern browser (or visit [hexstakeanalyzer.github.io/Hex-Stake-Analyzer](https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/))
 2. Paste one or more wallet addresses; click **+ Add** to stack them, then **Analyze**
 3. Choose PulseChain, Ethereum, or Both at the top of the dashboard
 
