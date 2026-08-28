@@ -40,7 +40,7 @@ Live: <https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/>
 
 ## How to Use
 
-1. Open `HSA v54.html` in any modern browser (or visit [hexstakeanalyzer.github.io/Hex-Stake-Analyzer](https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/))
+1. Open `HSA v54.1.html` in any modern browser (or visit [hexstakeanalyzer.github.io/Hex-Stake-Analyzer](https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/))
 2. Paste one or more wallet addresses; click **+ Add** to stack them, then **Analyze**
 3. Choose PulseChain, Ethereum, or Both at the top of the dashboard
 
@@ -55,7 +55,7 @@ No install. No wallet connection. No signatures.
 | **Blockscout / PulseScan** | Ended-stake event log scans |
 | **Actuator contract** (PulseChain only) | HTT discovery + per-stake extraction detail |
 | **PulseX v2 subgraph** | Live HTT USD prices + HTT safety-net discovery |
-| **DexScreener** | Live HEX price per chain (PulseX + Uniswap), with CoinPaprika / CoinGecko fallback |
+| **DexScreener** | Live HEX price per chain (PulseX + Uniswap), with CoinPaprika / CoinGecko fallback. Also enumerates every HEX / eHEX / pHEX liquidity pool per chain — the Available HEX card auto-discovers pools on every refresh instead of relying on a hardcoded list |
 | **HEXDailyStats** | Baked daily payout + historical price tables (Day 1 forward), with CoinGecko range fallback |
 
 All read-only. All public. No API keys.
@@ -67,6 +67,7 @@ All read-only. All public. No API keys.
 - **sessionStorage** for a same-tab scan cache (auto-wipes on tab close).
 - **localStorage** for one thing only: the recent-address history (key `hsa_recent_addrs`, capped at 20). A visible **Clear addresses** button next to the search bar wipes it any time. Skip this on shared computers.
 - No cookies, no analytics, no tracking, no telemetry.
+- **Auto-update:** on a fresh visit, the app quickly checks whether a newer version has been published and, if so, reloads once to pick it up (adds a `?updated_from=...` cache-buster to the URL). Tabs you've had open for a while show an "update available" banner instead of reloading, so an in-progress analysis is never interrupted.
 
 ## Technical Notes
 
