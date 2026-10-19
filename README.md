@@ -27,6 +27,11 @@ Live: <https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/>
 - Automatic discovery of any HTT series that exists on-chain (Actuator-listed or otherwise), with spoof-token filtering
 - Per-series breakdown showing borrowed vs native extraction
 
+**Ended HTT stake attribution (new in v55)**
+- Every ended Actuator stake is tagged **SELF** (you ended it) or **FORCED** (someone else — typically an HTT holder redeeming at maturity, which Actuator allows once currentDay ≥ maturity)
+- Each row's Yield column shows a per-row breakdown of where the stake's unlocked HEX went: *→ HTT holders* (locked for HTT redemption), *→ Your wallet* (residual paid to you), and *→ Ender bounty* when the stake was ended more than 3 days past maturity (the Actuator `SUBSIDY_GRACE_DAYS` rule)
+- Pre-v55, HSA required `tx.from = your wallet` to see an ended stake and silently dropped force-ends. v55 rebuilds the link via Actuator's own `MintHEXTimeTokens(user, hsiAddress, ...)` log
+
 **Portfolio numbers**
 - Unrealized + Realized P&L with lifetime yield and average holding period
 - Effective APY (active / ended / combined), daily yield rate, monthly projections
@@ -40,7 +45,7 @@ Live: <https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/>
 
 ## How to Use
 
-1. Open `HSA v54.1.html` in any modern browser (or visit [hexstakeanalyzer.github.io/Hex-Stake-Analyzer](https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/))
+1. Open `HSA v55.html` in any modern browser (or visit [hexstakeanalyzer.github.io/Hex-Stake-Analyzer](https://hexstakeanalyzer.github.io/Hex-Stake-Analyzer/))
 2. Paste one or more wallet addresses; click **+ Add** to stack them, then **Analyze**
 3. Choose PulseChain, Ethereum, or Both at the top of the dashboard
 
